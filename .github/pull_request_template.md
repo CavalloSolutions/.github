@@ -1,5 +1,3 @@
-[CARD-NUMBER] Title
-
 ## Why
 
 -
