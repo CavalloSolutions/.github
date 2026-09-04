@@ -20,11 +20,11 @@
     <Optional> Something else that happened or will happen as a result
 -->
 
-## Check List
+## Checklist
 
 - [ ] QA Steps/Testing Instructions documented
 - [ ] Tests added for Bugs or Functionality
-- [ ] JSDocs added / updated
+- [ ] Code documentation added / updated
 - [ ] Backwards compatibility considered/documented/coded against
 
 ### Preview:
