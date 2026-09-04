@@ -1,9 +1,7 @@
 name: Prepare pull request template
 
 on:
-  pull_request_target:
-    types:
-      - opened
+  workflow_call:
 
 permissions:
   contents: read
