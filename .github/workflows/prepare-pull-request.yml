@@ -1,0 +1,88 @@
+name: Prepare pull request template
+
+on:
+  pull_request_target:
+    types:
+      - opened
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Populate pull request title and preview section
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pullRequest = context.payload.pull_request;
+            const templatePaths = [
+              '.github/pull_request_template.md',
+              'pull_request_template.md',
+              'docs/pull_request_template.md',
+            ];
+            const hasTemplateOverride = (await Promise.all(templatePaths.map(async (path) => {
+              try {
+                await github.rest.repos.getContent({
+                  owner,
+                  repo,
+                  path,
+                  ref: pullRequest.base.sha,
+                });
+                return true;
+              } catch (error) {
+                if (error.status === 404) {
+                  return false;
+                }
+                throw error;
+              }
+            }))).some(Boolean);
+
+            if (hasTemplateOverride) {
+              return;
+            }
+
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
+              owner,
+              repo,
+              pull_number: pullRequest.number,
+              per_page: 100,
+            });
+            const conventionalCommit = /^[a-z]+(?:\([^)]*\))?!?:\s+(.+?)\s*\[([a-z][a-z0-9]*-\d+)\]\s*$/i;
+            const commitTitle = commits
+              .map(({ commit }) => commit.message.split(/\r?\n/, 1)[0].trim())
+              .find((title) => conventionalCommit.test(title)) || '';
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pullRequest.number,
+              per_page: 100,
+            });
+            const hasPreviewChanges = files.some(({ filename }) =>
+              /\.(?:al|ts|css|tsx)$/i.test(filename),
+            );
+
+            const originalBody = pullRequest.body || '';
+            let body = originalBody;
+            const match = conventionalCommit.exec(commitTitle);
+
+            if (match) {
+              const titleLine = `[${match[2].toUpperCase()}] ${match[1].trim()}`;
+              body = body.replace(/^\[CARD-NUMBER\][^\r\n]*$/m, titleLine);
+            }
+
+            if (!hasPreviewChanges) {
+              body = body.replace(/\r?\n+### Preview:[\s\S]*$/i, '').trimEnd();
+            }
+
+            if (body !== originalBody) {
+              await github.rest.pulls.update({
+                owner,
+                repo,
+                pull_number: pullRequest.number,
+                body,
+              });
+            }
